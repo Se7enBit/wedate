@@ -1,0 +1,4 @@
+# Claude Code files stay on this machine
+.claude/
+CLAUDE.md
+CLAUDE.local.md
