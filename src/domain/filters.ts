@@ -1,4 +1,15 @@
-import type { Budget, Category, Duration, Energy, Idea, TimeOfDay, Vibe } from './idea.ts'
+import {
+  BUDGETS,
+  DURATIONS,
+  type Budget,
+  type Category,
+  type Duration,
+  type Energy,
+  type Idea,
+  type TimeOfDay,
+  type Vibe,
+} from './idea.ts'
+import type { IdeaPrefs } from './prompt.ts'
 
 /** Each group is multi-select: OR within a group, AND across groups. Empty or missing = no constraint. */
 export type Filters = {
@@ -64,4 +75,22 @@ export function applyFilters(ideas: readonly Idea[], filters: Filters): Idea[] {
       allows(filters.vibes, (v) => idea.vibes.includes(v))
     )
   })
+}
+
+/**
+ * Library ideas for AI prefs, the fallback when AI fails. Budget, duration and home/out always hold;
+ * if nothing matches, vibes are dropped first, then energy.
+ */
+export function libraryPicks(ideas: readonly Idea[], prefs: IdeaPrefs, count = 5): Idea[] {
+  const limits: Filters = {
+    budgets: BUDGETS.filter((b) => b <= prefs.budget),
+    durations: DURATIONS.slice(0, DURATIONS.indexOf(prefs.duration) + 1),
+    settings: prefs.setting && [prefs.setting],
+  }
+  const energies = prefs.energy && [prefs.energy]
+  for (const filters of [{ ...limits, energies, vibes: prefs.vibes }, { ...limits, energies }, limits]) {
+    const matches = applyFilters(ideas, filters)
+    if (matches.length > 0) return mixCategories(matches).slice(0, count)
+  }
+  return []
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { applyFilters, mixCategories, toggle } from './filters.ts'
+import { applyFilters, libraryPicks, mixCategories, toggle } from './filters.ts'
+import type { IdeaPrefs } from './prompt.ts'
 import { makeIdea } from './test-utils.ts'
 
 const picnic = makeIdea({
@@ -96,6 +97,42 @@ describe('mixCategories', () => {
   it('keeps every idea and handles an empty list', () => {
     expect(mixCategories(all)).toHaveLength(all.length)
     expect(mixCategories([])).toEqual([])
+  })
+})
+
+describe('libraryPicks', () => {
+  const open: IdeaPrefs = { vibes: [], budget: 3, duration: 'full_day' }
+  const picks = (prefs: IdeaPrefs, count?: number) => libraryPicks(all, prefs, count).map((i) => i.id)
+
+  it('treats budget and duration as upper limits', () => {
+    expect(picks({ ...open, budget: 1 }).sort()).toEqual(['movie', 'picnic'])
+    expect(picks({ ...open, budget: 0 })).toEqual(['movie'])
+    expect(picks({ ...open, duration: 'short' }).sort()).toEqual(['movie', 'picnic'])
+  })
+
+  it('matches home/out, with "either" fitting both', () => {
+    expect(picks({ ...open, setting: 'home' }).sort()).toEqual(['cafe', 'movie'])
+    expect(picks({ ...open, setting: 'out' }).sort()).toEqual(['cafe', 'picnic'])
+  })
+
+  it('uses vibes and energy when something matches', () => {
+    expect(picks({ ...open, vibes: ['romantic'] })).toEqual(['picnic'])
+    expect(picks({ ...open, energy: 'low' })).toEqual(['movie'])
+  })
+
+  it('drops vibes first, then energy, when nothing matches', () => {
+    // Nothing is both cozy and medium energy: vibes go, energy stays.
+    expect(picks({ ...open, vibes: ['cozy'], energy: 'medium' }).sort()).toEqual(['cafe', 'picnic'])
+    // Nothing free is high energy: energy goes too, the budget stays.
+    expect(picks({ ...open, budget: 0, vibes: ['fancy'], energy: 'high' })).toEqual(['movie'])
+  })
+
+  it('never breaks the hard limits to fill the list', () => {
+    expect(picks({ ...open, budget: 0, setting: 'out' })).toEqual([])
+  })
+
+  it('respects the count', () => {
+    expect(picks(open, 2)).toHaveLength(2)
   })
 })
 
