@@ -92,3 +92,5 @@ export type Budget = z.infer<typeof BudgetSchema>
 export type Setting = Idea['setting']
 export type Space = Idea['space']
 export type Energy = Idea['energy']
+export type WeatherFit = Idea['weather']
+export type Prep = Idea['prep']

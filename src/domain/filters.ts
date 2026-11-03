@@ -22,6 +22,29 @@ function allows<T>(chosen: readonly T[] | undefined, test: (value: T) => boolean
   return !chosen || chosen.length === 0 || chosen.some(test)
 }
 
+/** Add `value` if missing, remove it if present (for multi-select chips). */
+export function toggle<T>(list: readonly T[] | undefined, value: T): T[] {
+  const current = list ?? []
+  return current.includes(value) ? current.filter((v) => v !== value) : [...current, value]
+}
+
+/** Deal ideas round-robin by category (in order of first appearance), keeping order within a category. */
+export function mixCategories(ideas: readonly Idea[]): Idea[] {
+  const groups = new Map<Category, Idea[]>()
+  for (const idea of ideas) {
+    const group = groups.get(idea.category)
+    if (group) group.push(idea)
+    else groups.set(idea.category, [idea])
+  }
+  const queues = [...groups.values()]
+  const longest = Math.max(0, ...queues.map((q) => q.length))
+  const mixed: Idea[] = []
+  for (let round = 0; round < longest; round++) {
+    for (const queue of queues) if (round < queue.length) mixed.push(queue[round])
+  }
+  return mixed
+}
+
 export function applyFilters(ideas: readonly Idea[], filters: Filters): Idea[] {
   const words = fold(filters.query ?? '').split(/\s+/).filter(Boolean)
 

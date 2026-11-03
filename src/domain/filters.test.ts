@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { applyFilters } from './filters.ts'
+import { applyFilters, mixCategories, toggle } from './filters.ts'
 import { makeIdea } from './test-utils.ts'
 
 const picnic = makeIdea({
@@ -80,5 +80,29 @@ describe('applyFilters', () => {
     expect(ids({ query: 'fort picnic' })).toEqual([])
     expect(ids({ query: 'scenic' })).toEqual(['picnic'])
     expect(ids({ query: 'sunset', budgets: [0] })).toEqual([])
+  })
+})
+
+describe('mixCategories', () => {
+  const food = (n: number) => makeIdea({ id: `food-${n}`, category: 'food_drink' })
+  const games = (n: number) => makeIdea({ id: `games-${n}`, category: 'games' })
+  const art = (n: number) => makeIdea({ id: `art-${n}`, category: 'creative' })
+
+  it('deals categories round-robin, keeping order within each', () => {
+    const mixed = mixCategories([food(1), food(2), food(3), games(1), games(2), art(1)])
+    expect(mixed.map((i) => i.id)).toEqual(['food-1', 'games-1', 'art-1', 'food-2', 'games-2', 'food-3'])
+  })
+
+  it('keeps every idea and handles an empty list', () => {
+    expect(mixCategories(all)).toHaveLength(all.length)
+    expect(mixCategories([])).toEqual([])
+  })
+})
+
+describe('toggle', () => {
+  it('adds a missing value and removes a present one', () => {
+    expect(toggle(undefined, 'a')).toEqual(['a'])
+    expect(toggle(['a', 'b'], 'c')).toEqual(['a', 'b', 'c'])
+    expect(toggle(['a', 'b'], 'a')).toEqual(['b'])
   })
 })
