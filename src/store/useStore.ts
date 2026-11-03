@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { DEFAULT_GEMINI_MODEL, STORAGE_KEY } from '../config.ts'
 import type { Filters } from '../domain/filters.ts'
-import type { Idea, Reaction } from '../domain/idea.ts'
+import type { Budget, Duration, Idea, Reaction, Vibe } from '../domain/idea.ts'
 import { NOTE_MAX, pruneReactions, type SavedEntry, type SavedMap } from '../domain/saved.ts'
 
 export type Settings = {
@@ -17,9 +17,24 @@ type PersistedState = {
   settings: Settings
 }
 
+/** Now-tab choices and deck position: kept while the app is open, not persisted. */
+export type NowPrefs = {
+  moods: Vibe[]
+  setting?: 'home' | 'out'
+  maxBudget: Budget
+  maxDuration: Duration
+}
+
+type NowSession = NowPrefs & {
+  seed: number
+  /** Ideas already swiped in this deal. */
+  passed: string[]
+}
+
 type State = PersistedState & {
   /** Discover filters: kept while the app is open, not persisted. */
   filters: Filters
+  now: NowSession
   save: (idea: Idea) => void
   /** Removes a saved entry (for own ideas this deletes the idea). */
   remove: (id: string) => void
@@ -30,7 +45,16 @@ type State = PersistedState & {
   updateCustom: (idea: Idea) => void
   setFilters: (patch: Partial<Filters>) => void
   clearFilters: () => void
+  /** Logs a skip reaction (left swipe). */
+  skip: (id: string) => void
+  setCity: (city: Settings['city']) => void
+  /** Changing prefs starts a new deal. */
+  setNowPrefs: (patch: Partial<NowPrefs>) => void
+  pass: (id: string) => void
+  redeal: () => void
 }
+
+const newSeed = () => Math.floor(Math.random() * 2 ** 31)
 
 const nowIso = () => new Date().toISOString()
 
@@ -60,6 +84,7 @@ export const useStore = create<State>()(
       reactions: [],
       settings: { geminiModel: DEFAULT_GEMINI_MODEL },
       filters: {},
+      now: { moods: [], maxBudget: 3, maxDuration: 'full_day', seed: newSeed(), passed: [] },
 
       save: (idea) =>
         set((s) =>
@@ -112,6 +137,12 @@ export const useStore = create<State>()(
 
       setFilters: (patch) => set((s) => ({ filters: { ...s.filters, ...patch } })),
       clearFilters: () => set({ filters: {} }),
+
+      skip: (id) => set((s) => ({ reactions: addReaction(s.reactions, id, 'skip') })),
+      setCity: (city) => set((s) => ({ settings: { ...s.settings, city } })),
+      setNowPrefs: (patch) => set((s) => ({ now: { ...s.now, ...patch, passed: [] } })),
+      pass: (id) => set((s) => ({ now: { ...s.now, passed: [...s.now.passed, id] } })),
+      redeal: () => set((s) => ({ now: { ...s.now, seed: newSeed(), passed: [] } })),
     }),
     {
       name: STORAGE_KEY,
