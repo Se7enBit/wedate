@@ -1,7 +1,6 @@
 // Every UI string lives here, so translating later is one file.
 export const strings = {
   appName: 'WeDate',
-  comingSoon: 'Coming soon',
   tabs: {
     discover: 'Discover',
     now: 'Now',
@@ -11,7 +10,32 @@ export const strings = {
   settings: {
     title: 'Settings',
     open: 'Open settings',
-    moreSoon: 'Your Gemini key, backups and more arrive in later updates.',
+    moreSoon: 'Backups arrive in a later update.',
+    gemini: {
+      title: 'AI ideas',
+      hint: 'Paste a free Gemini API key. It stays on this phone and is only sent to Google.',
+      getKey: 'Get a free key at Google AI Studio',
+      key: 'Gemini API key',
+      keyPlaceholder: 'Paste your key',
+      replacePlaceholder: 'Paste a new key to replace it',
+      currentKey: 'Saved key',
+      noKey: 'No key saved.',
+      saveKey: 'Save',
+      removeKey: 'Remove',
+      model: 'Model',
+      modelHint: (model: string) => `Leave blank to use ${model}.`,
+      test: 'Test key',
+      testing: 'Testing…',
+      testResult: {
+        ok: (model: string) => `It works! Your key can use ${model}.`,
+        no_key: 'Save a key first.',
+        bad_key: "Google didn't accept this key. Check that you copied all of it.",
+        bad_model: "Your key was accepted, but Google doesn't know this model. Check the model name.",
+        rate_limited: "Your key has hit Gemini's free limit for now. Try again later.",
+        unavailable: "Couldn't reach Gemini. Check your connection and try again.",
+        bad_output: 'Gemini sent an odd answer. Try again.',
+      },
+    },
     city: {
       title: 'Your city',
       hint: 'Used for the weather when location is off or not allowed.',
@@ -30,8 +54,34 @@ export const strings = {
       },
     },
   },
-  screens: {
-    create: { title: 'Create', hint: 'Let AI dream up ideas just for the two of you.' },
+  ai: {
+    errors: {
+      no_key: 'Add your Gemini key in Settings to get AI ideas.',
+      bad_key: "Google didn't accept your Gemini key. Check it in Settings.",
+      bad_model: "Google doesn't recognize that Gemini model. Check its name in Settings.",
+      rate_limited: "You've hit Gemini's free limit for now. Try again in a little while.",
+      unavailable: "Couldn't reach Gemini. Check your connection or try again in a moment.",
+      bad_output: "Gemini's answer didn't work out this time. Try again.",
+    },
+    openSettings: 'Open Settings',
+    picks: 'Meanwhile, from the library',
+  },
+
+  create: {
+    title: 'Create',
+    hint: 'Let AI dream up ideas just for the two of you.',
+    vibes: 'Vibes',
+    budget: 'Max budget',
+    duration: 'Max duration',
+    setting: 'Home or out',
+    energy: 'Energy',
+    any: 'Any',
+    notes: 'Notes (optional)',
+    notesPlaceholder: 'Anything to keep in mind, like "we love Italian food"',
+    notesHint: 'Please no names or private details. Google may use free-tier prompts to improve its products.',
+    generate: 'Create ideas',
+    generating: 'Thinking up ideas…',
+    results: 'Ideas for you',
   },
 
   now: {
@@ -71,6 +121,8 @@ export const strings = {
     doneTitle: "That's the deck",
     doneHint: 'Deal again for a fresh shuffle.',
     dealAgain: 'Deal again',
+    dealNew: 'Deal me something new',
+    dealing: 'Dealing…',
   },
 
   deck: {

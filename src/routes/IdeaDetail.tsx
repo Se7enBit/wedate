@@ -14,11 +14,12 @@ export default function IdeaDetail() {
   const navigate = useNavigate()
   const location = useLocation()
   const saved = useStore((s) => s.saved)
+  const drafts = useStore((s) => s.drafts)
   const actions = useStore.getState()
   const d = strings.detail
   const l = strings.labels
 
-  const idea = findIdea(id, saved)
+  const idea = findIdea(id, saved, drafts)
   if (!idea) {
     return (
       <EmptyState emoji="🤷" title={d.notFoundTitle} hint={d.notFoundHint}>

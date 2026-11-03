@@ -1,50 +1,21 @@
-import { CloudOff, MapPin } from 'lucide-react'
+import { CloudOff, MapPin, Sparkles } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router'
+import AiNotice from '../components/AiNotice.tsx'
 import EmptyState from '../components/EmptyState.tsx'
 import { ChipGroup } from '../components/FilterChips.tsx'
-import { btnPrimary } from '../components/styles.ts'
+import { btnPrimary, btnSecondary } from '../components/styles.ts'
 import SwipeDeck from '../components/SwipeDeck.tsx'
-import { LIBRARY } from '../content/library.ts'
-import { fakeRain, timeOfDay, type WeatherSummary } from '../domain/context.ts'
+import { findIdea, LIBRARY } from '../content/library.ts'
+import { fakeRain, timeOfDay } from '../domain/context.ts'
 import { toggle } from '../domain/filters.ts'
-import { BUDGETS, DURATIONS, VIBES } from '../domain/idea.ts'
+import { BUDGETS, DURATIONS, VIBES, type Idea } from '../domain/idea.ts'
+import { recentTitles } from '../domain/prompt.ts'
 import { DECK_SIZE, rankForNow, type NowContext } from '../domain/scoring.ts'
-import { ServiceError } from '../services/http.ts'
-import { resolvePlace } from '../services/location.ts'
-import { getWeather } from '../services/weather.ts'
-import { useStore, type Settings } from '../store/useStore.ts'
+import { aiErrorCode, GeminiError, generateIdeas } from '../services/gemini.ts'
+import { useSurroundings } from '../services/useSurroundings.ts'
+import { useStore } from '../store/useStore.ts'
 import { strings } from '../strings.ts'
-
-type PlaceInfo = { name?: string; source: 'device' | 'city' }
-type Surroundings =
-  | { status: 'loading' }
-  | { status: 'ready'; weather: WeatherSummary; place: PlaceInfo }
-  | { status: 'none'; reason: keyof typeof strings.now.noWeatherReason; place?: PlaceInfo }
-
-/** Location then weather, refreshed when the Settings city changes. Never blocks the deck. */
-function useSurroundings(city: Settings['city']): Surroundings {
-  const [state, setState] = useState<Surroundings>({ status: 'loading' })
-  useEffect(() => {
-    let cancelled = false
-    resolvePlace(city).then(async (place) => {
-      if (cancelled) return
-      if (!place.ok) return setState({ status: 'none', reason: 'location' })
-      const info: PlaceInfo = { name: place.name, source: place.source }
-      try {
-        const weather = await getWeather(place.lat, place.lon)
-        if (!cancelled) setState({ status: 'ready', weather, place: info })
-      } catch (err) {
-        const reason = err instanceof ServiceError && err.code === 'offline' ? 'offline' : 'unavailable'
-        if (!cancelled) setState({ status: 'none', reason, place: info })
-      }
-    })
-    return () => {
-      cancelled = true
-    }
-  }, [city])
-  return state
-}
 
 /** The current time, ticking every minute. */
 function useClock(): Date {
@@ -87,19 +58,66 @@ export default function Now() {
     maxBudget: now.maxBudget,
     maxDuration: now.maxDuration,
   }
-  const ranked = rankForNow(pool, ctx, reactions, now.seed)
   const passed = new Set(now.passed)
-  const deck = ranked.filter((i) => !passed.has(i.id)).slice(0, Math.max(0, DECK_SIZE - now.passed.length))
+  const unswiped = (idea: Idea) => !passed.has(idea.id)
+
+  // AI ideas sit on top, and still have to fit the current limits, time and weather.
+  const fresh = rankForNow(now.fresh, ctx, [], now.seed)
+  const freshIds = new Set(now.fresh.map((i) => i.id))
+  const ranked = rankForNow(pool, ctx, reactions, now.seed).filter((i) => !freshIds.has(i.id))
+  const rankedPassed = now.passed.filter((id) => !freshIds.has(id)).length
+  const deck = [
+    ...fresh.filter(unswiped),
+    ...ranked.filter(unswiped).slice(0, Math.max(0, DECK_SIZE - rankedPassed)),
+  ]
 
   const { setNowPrefs, pass, redeal } = useStore.getState()
-  const onSave = (idea: (typeof deck)[number]) => {
+  const onSave = (idea: Idea) => {
     useStore.getState().save(idea)
     pass(idea.id)
   }
-  const onSkip = (idea: (typeof deck)[number]) => {
+  const onSkip = (idea: Idea) => {
     useStore.getState().skip(idea.id)
     pass(idea.id)
   }
+
+  const dealNew = async () => {
+    const { settings, drafts, setDeal, addDrafts, dealFresh } = useStore.getState()
+    const known = (ids: string[]) => ids.flatMap((id) => findIdea(id, saved, drafts) ?? [])
+    const seen = [
+      ...deck,
+      ...known([...now.passed].reverse()),
+      ...Object.values(drafts).reverse(),
+      ...known(reactions.map((r) => r.ideaId).reverse()),
+    ]
+    setDeal({ dealing: true, dealError: undefined })
+    try {
+      const ideas = await generateIdeas(
+        settings,
+        { vibes: now.moods, budget: now.maxBudget, duration: now.maxDuration, setting: now.setting },
+        { now: date, timeOfDay: bucket, weather, cityName: city?.name, rightNow: true },
+        recentTitles(seen),
+      )
+      if (rankForNow(ideas, ctx, [], now.seed).length === 0) throw new GeminiError('bad_output')
+      addDrafts(ideas)
+      dealFresh(ideas)
+      setDeal({ dealing: false })
+    } catch (err) {
+      setDeal({ dealing: false, dealError: aiErrorCode(err) })
+    }
+  }
+
+  const dealNewButton = (
+    <button type="button" onClick={dealNew} disabled={now.dealing} className={btnSecondary}>
+      <Sparkles size={18} aria-hidden />
+      {now.dealing ? n.dealing : n.dealNew}
+    </button>
+  )
+
+  // Library ideas that fit, in a new order so they are not just the top of the deck again.
+  const libraryRanked = now.dealError ? rankForNow(LIBRARY, ctx, reactions, now.seed + 1) : []
+  const libraryUnswiped = libraryRanked.filter(unswiped)
+  const picks = (libraryUnswiped.length > 0 ? libraryUnswiped : libraryRanked).slice(0, 5)
 
   const clock = date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
   const limitsSummary = [
@@ -208,23 +226,33 @@ export default function Now() {
         </div>
       </details>
 
-      {ranked.length === 0 ? (
-        <EmptyState emoji="🫥" title={n.emptyTitle} hint={n.emptyHint} />
-      ) : deck.length === 0 ? (
-        <EmptyState emoji="🃏" title={n.doneTitle} hint={n.doneHint}>
-          <button type="button" onClick={redeal} className={btnPrimary}>
-            {n.dealAgain}
-          </button>
+      {deck.length > 0 ? (
+        <>
+          <SwipeDeck
+            ideas={deck}
+            saved={saved}
+            onSave={onSave}
+            onSkip={onSkip}
+            onOpen={(idea) => navigate(`/idea/${encodeURIComponent(idea.id)}`)}
+          />
+          {dealNewButton}
+        </>
+      ) : ranked.length === 0 && fresh.length === 0 ? (
+        <EmptyState emoji="🫥" title={n.emptyTitle} hint={n.emptyHint}>
+          {dealNewButton}
         </EmptyState>
       ) : (
-        <SwipeDeck
-          ideas={deck}
-          saved={saved}
-          onSave={onSave}
-          onSkip={onSkip}
-          onOpen={(idea) => navigate(`/idea/${encodeURIComponent(idea.id)}`)}
-        />
+        <EmptyState emoji="🃏" title={n.doneTitle} hint={n.doneHint}>
+          <div className="flex flex-col items-center gap-2">
+            <button type="button" onClick={redeal} className={btnPrimary}>
+              {n.dealAgain}
+            </button>
+            {dealNewButton}
+          </div>
+        </EmptyState>
       )}
+
+      {now.dealError && <AiNotice code={now.dealError} picks={picks} />}
     </section>
   )
 }

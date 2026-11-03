@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { DEFAULT_GEMINI_MODEL, STORAGE_KEY } from '../config.ts'
 import type { Filters } from '../domain/filters.ts'
 import type { Budget, Duration, Idea, Reaction, Vibe } from '../domain/idea.ts'
+import type { AiErrorCode, IdeaPrefs } from '../domain/prompt.ts'
 import { NOTE_MAX, pruneReactions, type SavedEntry, type SavedMap } from '../domain/saved.ts'
 
 export type Settings = {
@@ -29,12 +30,27 @@ type NowSession = NowPrefs & {
   seed: number
   /** Ideas already swiped in this deal. */
   passed: string[]
+  /** AI ideas dealt on top of the deck. */
+  fresh: Idea[]
+  dealing: boolean
+  dealError?: AiErrorCode
+}
+
+/** Create-tab form and results: kept while the app is open, not persisted. */
+export type CreateSession = {
+  prefs: IdeaPrefs
+  loading: boolean
+  ideas: Idea[]
+  error?: AiErrorCode
 }
 
 type State = PersistedState & {
   /** Discover filters: kept while the app is open, not persisted. */
   filters: Filters
   now: NowSession
+  create: CreateSession
+  /** AI ideas from this session, so an unsaved one can still be opened. Not persisted. */
+  drafts: Record<string, Idea>
   save: (idea: Idea) => void
   /** Removes a saved entry (for own ideas this deletes the idea). */
   remove: (id: string) => void
@@ -48,10 +64,17 @@ type State = PersistedState & {
   /** Logs a skip reaction (left swipe). */
   skip: (id: string) => void
   setCity: (city: Settings['city']) => void
+  setGeminiKey: (key: string | undefined) => void
+  setGeminiModel: (model: string) => void
   /** Changing prefs starts a new deal. */
   setNowPrefs: (patch: Partial<NowPrefs>) => void
   pass: (id: string) => void
   redeal: () => void
+  setDeal: (patch: Partial<Pick<NowSession, 'dealing' | 'dealError'>>) => void
+  /** Puts new AI ideas on top of the deck. */
+  dealFresh: (ideas: Idea[]) => void
+  setCreate: (patch: Partial<CreateSession>) => void
+  addDrafts: (ideas: Idea[]) => void
 }
 
 const newSeed = () => Math.floor(Math.random() * 2 ** 31)
@@ -84,7 +107,9 @@ export const useStore = create<State>()(
       reactions: [],
       settings: { geminiModel: DEFAULT_GEMINI_MODEL },
       filters: {},
-      now: { moods: [], maxBudget: 3, maxDuration: 'full_day', seed: newSeed(), passed: [] },
+      now: { moods: [], maxBudget: 3, maxDuration: 'full_day', seed: newSeed(), passed: [], fresh: [], dealing: false },
+      create: { prefs: { vibes: [], budget: 3, duration: 'full_day' }, loading: false, ideas: [] },
+      drafts: {},
 
       save: (idea) =>
         set((s) =>
@@ -140,9 +165,17 @@ export const useStore = create<State>()(
 
       skip: (id) => set((s) => ({ reactions: addReaction(s.reactions, id, 'skip') })),
       setCity: (city) => set((s) => ({ settings: { ...s.settings, city } })),
-      setNowPrefs: (patch) => set((s) => ({ now: { ...s.now, ...patch, passed: [] } })),
+      setGeminiKey: (geminiKey) => set((s) => ({ settings: { ...s.settings, geminiKey } })),
+      setGeminiModel: (geminiModel) => set((s) => ({ settings: { ...s.settings, geminiModel } })),
+      setNowPrefs: (patch) =>
+        set((s) => ({ now: { ...s.now, ...patch, passed: [], fresh: [], dealError: undefined } })),
       pass: (id) => set((s) => ({ now: { ...s.now, passed: [...s.now.passed, id] } })),
-      redeal: () => set((s) => ({ now: { ...s.now, seed: newSeed(), passed: [] } })),
+      redeal: () => set((s) => ({ now: { ...s.now, seed: newSeed(), passed: [], fresh: [], dealError: undefined } })),
+      setDeal: (patch) => set((s) => ({ now: { ...s.now, ...patch } })),
+      dealFresh: (ideas) => set((s) => ({ now: { ...s.now, fresh: [...ideas, ...s.now.fresh] } })),
+      setCreate: (patch) => set((s) => ({ create: { ...s.create, ...patch } })),
+      addDrafts: (ideas) =>
+        set((s) => ({ drafts: { ...s.drafts, ...Object.fromEntries(ideas.map((idea) => [idea.id, idea])) } })),
     }),
     {
       name: STORAGE_KEY,
