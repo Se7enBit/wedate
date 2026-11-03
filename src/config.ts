@@ -1,3 +1,8 @@
+declare const __APP_VERSION__: string
+
+// Package version and commit, set in vite.config.ts.
+export const APP_VERSION = __APP_VERSION__
+
 // localStorage key for the persisted store.
 export const STORAGE_KEY = 'wedate'
 

@@ -11,7 +11,7 @@ const tabs: { to: string; label: string; icon: LucideIcon }[] = [
 
 export default function TabBar() {
   return (
-    <nav className="fixed inset-x-0 bottom-0 border-t border-border bg-surface pb-[env(safe-area-inset-bottom)]">
+    <nav className="fixed inset-x-0 bottom-0 border-t border-border bg-surface pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] pl-[env(safe-area-inset-left)]">
       <ul className="mx-auto flex max-w-lg">
         {tabs.map(({ to, label, icon: Icon }) => (
           <li key={to} className="flex-1">
