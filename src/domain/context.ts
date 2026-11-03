@@ -1,3 +1,4 @@
+import { z } from 'zod'
 import { TIMES_OF_DAY, type TimeOfDay } from './idea.ts'
 
 // Bucket start hours (local time): morning 05–12, afternoon 12–17, evening 17–22, late_night 22–05.
@@ -82,4 +83,61 @@ export function weatherFromOpenMeteo(current: OpenMeteoCurrent): WeatherSummary 
     kind,
     emoji: KIND_EMOJI[kind],
   }
+}
+
+/** A rainy day for the dev-only "fake rain" switch; keeps day/night from the real weather. */
+export function fakeRain(weather?: WeatherSummary): WeatherSummary {
+  return { tempC: 12, isRaining: true, isDay: weather?.isDay ?? true, code: 63, kind: 'rain', emoji: KIND_EMOJI.rain }
+}
+
+// API response shapes (validated before use).
+
+export const OpenMeteoForecastSchema = z.object({
+  current: z.object({
+    temperature_2m: z.number(),
+    precipitation: z.number(),
+    weather_code: z.number().int(),
+    is_day: z.number().int(),
+  }),
+})
+
+export const GeocodingSchema = z.object({
+  results: z
+    .array(
+      z.object({
+        id: z.number(),
+        name: z.string(),
+        latitude: z.number(),
+        longitude: z.number(),
+        country: z.string().optional(),
+        admin1: z.string().optional(),
+      }),
+    )
+    .optional(),
+})
+
+export type GeocodingResult = NonNullable<z.infer<typeof GeocodingSchema>['results']>[number]
+
+/** "Thessaloniki, Central Macedonia, Greece", skipping missing and repeated parts. */
+export function cityLabel(result: GeocodingResult): string {
+  const parts = [result.name, result.admin1, result.country].filter((p): p is string => !!p)
+  return parts.filter((p, i) => parts.indexOf(p) === i).join(', ')
+}
+
+// Weather cache: reuse a reading for 30 minutes within roughly 1 km (coordinates rounded to 2 decimals).
+
+export const WEATHER_CACHE_MINUTES = 30
+
+export type CachedWeather = { lat: number; lon: number; fetchedAt: string; weather: WeatherSummary }
+
+const round2 = (n: number) => Math.round(n * 100) / 100
+
+export function weatherCacheFresh(cached: CachedWeather, lat: number, lon: number, now: Date): boolean {
+  const ageMs = now.getTime() - Date.parse(cached.fetchedAt)
+  return (
+    ageMs >= 0 &&
+    ageMs < WEATHER_CACHE_MINUTES * 60 * 1000 &&
+    round2(cached.lat) === round2(lat) &&
+    round2(cached.lon) === round2(lon)
+  )
 }

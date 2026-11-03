@@ -1,5 +1,16 @@
 import { describe, expect, it } from 'vitest'
-import { minutesUntilNextBucket, nextTimeOfDay, timeOfDay, weatherFromOpenMeteo, weatherKind } from './context.ts'
+import {
+  cityLabel,
+  fakeRain,
+  GeocodingSchema,
+  minutesUntilNextBucket,
+  nextTimeOfDay,
+  OpenMeteoForecastSchema,
+  timeOfDay,
+  weatherCacheFresh,
+  weatherFromOpenMeteo,
+  weatherKind,
+} from './context.ts'
 
 // Local time, so the tests pass in any timezone.
 const at = (h: number, m = 0) => new Date(2026, 10, 3, h, m)
@@ -85,5 +96,69 @@ describe('weatherFromOpenMeteo', () => {
 
   it('reads is_day', () => {
     expect(weatherFromOpenMeteo({ ...current, is_day: 0 }).isDay).toBe(false)
+  })
+})
+
+describe('fakeRain', () => {
+  it('is rainy and keeps day or night', () => {
+    expect(fakeRain()).toMatchObject({ isRaining: true, isDay: true, kind: 'rain' })
+    const night = weatherFromOpenMeteo({ temperature_2m: 20, precipitation: 0, weather_code: 0, is_day: 0 })
+    expect(fakeRain(night).isDay).toBe(false)
+  })
+})
+
+describe('API schemas', () => {
+  it('accepts a real Open-Meteo forecast response', () => {
+    const sample = {
+      latitude: 40.665985,
+      longitude: 22.88998,
+      timezone: 'Europe/Athens',
+      current_units: { time: 'iso8601', temperature_2m: '°C' },
+      current: { time: '2026-11-04T00:00', interval: 900, temperature_2m: 12.4, precipitation: 0.0, weather_code: 3, is_day: 0 },
+    }
+    const parsed = OpenMeteoForecastSchema.parse(sample)
+    expect(weatherFromOpenMeteo(parsed.current)).toMatchObject({ tempC: 12.4, kind: 'cloudy', isDay: false })
+  })
+
+  it('rejects a forecast without current data', () => {
+    expect(OpenMeteoForecastSchema.safeParse({ latitude: 1 }).success).toBe(false)
+  })
+
+  it('accepts geocoding results and the no-results reply', () => {
+    const sample = {
+      results: [
+        { id: 734077, name: 'Thessaloniki', latitude: 40.64072, longitude: 22.93493, country: 'Greece', admin1: 'Central Macedonia', population: 317778 },
+      ],
+    }
+    expect(GeocodingSchema.parse(sample).results?.[0].name).toBe('Thessaloniki')
+    expect(GeocodingSchema.parse({ generationtime_ms: 0.12 }).results).toBeUndefined()
+  })
+})
+
+describe('cityLabel', () => {
+  const base = { id: 1, latitude: 0, longitude: 0 }
+  it('joins name, region and country, skipping missing and repeated parts', () => {
+    expect(cityLabel({ ...base, name: 'Thessaloniki', admin1: 'Central Macedonia', country: 'Greece' })).toBe(
+      'Thessaloniki, Central Macedonia, Greece',
+    )
+    expect(cityLabel({ ...base, name: 'Singapore', admin1: 'Singapore', country: 'Singapore' })).toBe('Singapore')
+    expect(cityLabel({ ...base, name: 'Nowhere' })).toBe('Nowhere')
+  })
+})
+
+describe('weatherCacheFresh', () => {
+  const weather = fakeRain()
+  const now = new Date('2026-11-04T12:00:00.000Z')
+  const cached = { lat: 40.6401, lon: 22.9444, fetchedAt: '2026-11-04T11:40:00.000Z', weather }
+
+  it('is fresh for 30 minutes at the same rounded place', () => {
+    expect(weatherCacheFresh(cached, 40.6449, 22.9399, now)).toBe(true)
+    expect(weatherCacheFresh({ ...cached, fetchedAt: '2026-11-04T11:30:00.000Z' }, 40.64, 22.94, now)).toBe(false)
+    expect(weatherCacheFresh({ ...cached, fetchedAt: '2026-11-04T12:05:00.000Z' }, 40.64, 22.94, now)).toBe(false)
+  })
+
+  it('is stale somewhere else', () => {
+    expect(weatherCacheFresh(cached, 40.66, 22.94, now)).toBe(false)
+    expect(weatherCacheFresh(cached, 40.64, 23.0, now)).toBe(false)
   })
 })
