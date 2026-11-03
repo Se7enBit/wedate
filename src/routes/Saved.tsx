@@ -45,13 +45,16 @@ export default function Saved() {
       {entries.length === 0 ? (
         <EmptyState emoji={EMPTY_EMOJI[tab]} title={s.empty[tab].title} hint={s.empty[tab].hint} />
       ) : (
-        <ul className="flex flex-col gap-3">
-          {entries.map((entry) => (
-            <li key={entry.idea.id}>
-              <IdeaCard idea={findIdea(entry.idea.id, saved) ?? entry.idea} entry={entry} />
-            </li>
-          ))}
-        </ul>
+        <>
+          <h2 className="sr-only">{s.tabs[tab]}</h2>
+          <ul className="flex flex-col gap-3">
+            {entries.map((entry) => (
+              <li key={entry.idea.id}>
+                <IdeaCard idea={findIdea(entry.idea.id, saved) ?? entry.idea} entry={entry} />
+              </li>
+            ))}
+          </ul>
+        </>
       )}
     </section>
   )

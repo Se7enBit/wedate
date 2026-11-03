@@ -159,7 +159,7 @@ export default function Now() {
             </span>
           )}
           {surroundings.status === 'none' && !place && (
-            <Link to="/settings" className={`${chip} text-gold`}>
+            <Link to="/settings" className={`${chip} min-h-11 text-gold`}>
               <MapPin size={14} aria-hidden />
               {n.setCity}
             </Link>
@@ -181,7 +181,7 @@ export default function Now() {
             href="https://open-meteo.com/"
             target="_blank"
             rel="noopener"
-            className="w-fit text-xs text-text-muted underline underline-offset-2"
+            className="inline-flex min-h-11 w-fit items-center text-xs text-text-muted underline underline-offset-2"
           >
             {n.attribution}
           </a>

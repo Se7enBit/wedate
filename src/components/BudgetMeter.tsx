@@ -5,15 +5,15 @@ export default function BudgetMeter({ budget }: { budget: Budget }) {
   const label = strings.labels.budgetAria[budget]
   if (budget === 0) {
     return (
-      <span aria-label={label} className="font-medium text-success">
+      <span role="img" aria-label={label} className="font-medium text-success">
         {strings.labels.budget[0]}
       </span>
     )
   }
   return (
-    <span aria-label={label} className="font-semibold tracking-wider">
+    <span role="img" aria-label={label} className="font-semibold tracking-wider">
       {[1, 2, 3].map((n) => (
-        <span key={n} aria-hidden className={n <= budget ? 'text-gold' : 'text-text-muted/40'}>
+        <span key={n} aria-hidden className={n <= budget ? 'text-gold' : 'text-text-muted/70'}>
           €
         </span>
       ))}

@@ -1,4 +1,4 @@
-import { animate, motion, useMotionValue, useReducedMotion, useTransform } from 'motion/react'
+import { animate, motion, useMotionValue, useTransform } from 'motion/react'
 import { Heart, Maximize2, X } from 'lucide-react'
 import { useEffect, useRef, type RefObject } from 'react'
 import type { Idea } from '../domain/idea.ts'
@@ -25,7 +25,7 @@ function DeckCard({ idea, saved }: { idea: Idea; saved: boolean }) {
         <span className="text-7xl leading-none" aria-hidden>
           {idea.emoji}
         </span>
-        {saved && <Heart size={22} fill="currentColor" className="text-rose" aria-label={strings.card.saved} />}
+        {saved && <Heart size={22} fill="currentColor" className="text-rose" role="img" aria-label={strings.card.saved} />}
       </div>
       <h2 className="font-display text-2xl leading-tight font-semibold">{idea.title}</h2>
       <p className="line-clamp-4 text-text-muted">{idea.summary}</p>
@@ -46,13 +46,12 @@ function DeckCard({ idea, saved }: { idea: Idea; saved: boolean }) {
 type TopCardProps = {
   idea: Idea
   saved: boolean
-  reduced: boolean
   flingRef: RefObject<((dir: 1 | -1) => void) | null>
   onDecide: (dir: 1 | -1) => void
   onOpen: () => void
 }
 
-function TopCard({ idea, saved, reduced, flingRef, onDecide, onOpen }: TopCardProps) {
+function TopCard({ idea, saved, flingRef, onDecide, onOpen }: TopCardProps) {
   const x = useMotionValue(0)
   const rotate = useTransform(x, [-200, 200], [-12, 12])
   const saveOpacity = useTransform(x, [20, SWIPE_PX], [0, 1])
@@ -63,7 +62,7 @@ function TopCard({ idea, saved, reduced, flingRef, onDecide, onOpen }: TopCardPr
   const fling = (dir: 1 | -1) => {
     if (decided.current) return
     decided.current = true
-    if (reduced) return onDecide(dir)
+    if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return onDecide(dir)
     animate(x, dir * 600, { duration: 0.22, ease: 'easeIn' }).then(() => onDecide(dir))
   }
 
@@ -113,7 +112,6 @@ function TopCard({ idea, saved, reduced, flingRef, onDecide, onOpen }: TopCardPr
 
 /** Swipe deck: right = save, left = skip, tap = open. Buttons do the same. */
 export default function SwipeDeck({ ideas, saved, onSave, onSkip, onOpen }: Props) {
-  const reduced = useReducedMotion() ?? false
   const flingRef = useRef<((dir: 1 | -1) => void) | null>(null)
   const top = ideas[0]
   if (!top) return null
@@ -142,7 +140,6 @@ export default function SwipeDeck({ ideas, saved, onSave, onSkip, onOpen }: Prop
           key={top.id}
           idea={top}
           saved={!!saved[top.id]}
-          reduced={reduced}
           flingRef={flingRef}
           onDecide={(dir) => (dir > 0 ? onSave(top) : onSkip(top))}
           onOpen={() => onOpen(top)}

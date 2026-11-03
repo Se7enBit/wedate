@@ -22,7 +22,7 @@ export default function IdeaDetail() {
   const idea = findIdea(id, saved, drafts)
   if (!idea) {
     return (
-      <EmptyState emoji="🤷" title={d.notFoundTitle} hint={d.notFoundHint}>
+      <EmptyState emoji="🤷" title={d.notFoundTitle} hint={d.notFoundHint} titleAs="h1">
         <Link to="/" className={btnPrimary}>
           {d.goDiscover}
         </Link>

@@ -129,9 +129,9 @@ export default function Discover() {
         </div>
       )}
 
-      <p className="text-sm text-text-muted" aria-live="polite">
+      <h2 className="text-sm text-text-muted" aria-live="polite">
         {d.count(ideas.length)}
-      </p>
+      </h2>
 
       {ideas.length === 0 ? (
         <EmptyState emoji="🔍" title={d.emptyTitle} hint={d.emptyHint}>

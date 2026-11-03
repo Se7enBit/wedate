@@ -45,10 +45,10 @@ export default function IdeaCard({ idea, entry }: { idea: Idea; entry?: SavedEnt
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-display text-xl leading-tight font-semibold">{idea.title}</h3>
           {entry?.status === 'done' && (
-            <CircleCheck size={18} className="mt-0.5 shrink-0 text-success" aria-label={strings.card.done} />
+            <CircleCheck size={18} className="mt-0.5 shrink-0 text-success" role="img" aria-label={strings.card.done} />
           )}
           {entry?.status === 'saved' && (
-            <Heart size={18} fill="currentColor" className="mt-0.5 shrink-0 text-rose" aria-label={strings.card.saved} />
+            <Heart size={18} fill="currentColor" className="mt-0.5 shrink-0 text-rose" role="img" aria-label={strings.card.saved} />
           )}
         </div>
         <p className="line-clamp-2 text-sm text-text-muted">{idea.summary}</p>
