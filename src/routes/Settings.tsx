@@ -1,11 +1,13 @@
-import { ExternalLink, KeyRound, MapPin, Search } from 'lucide-react'
-import { useState, type FormEvent } from 'react'
-import { btnPrimary, btnSecondary, field } from '../components/styles.ts'
-import { DEFAULT_GEMINI_MODEL } from '../config.ts'
+import { Download, ExternalLink, KeyRound, MapPin, Search, Trash2, Upload } from 'lucide-react'
+import { useState, type ChangeEvent, type FormEvent } from 'react'
+import { btnDanger, btnPrimary, btnSecondary, field } from '../components/styles.ts'
+import { APP_VERSION, DEFAULT_GEMINI_MODEL } from '../config.ts'
+import { backupFileName, fromBackup, parseBackup, toBackup, type Backup, type RestoreMode } from '../domain/backup.ts'
 import type { AiErrorCode } from '../domain/prompt.ts'
+import { saveBackupFile } from '../services/backupFile.ts'
 import { aiErrorCode, resolveModel, testKey } from '../services/gemini.ts'
 import { ServiceError } from '../services/http.ts'
-import { searchCities, type CityOption } from '../services/weather.ts'
+import { clearWeatherCache, searchCities, type CityOption } from '../services/weather.ts'
 import { useStore } from '../store/useStore.ts'
 import { strings } from '../strings.ts'
 
@@ -220,13 +222,137 @@ function CitySection() {
   )
 }
 
+const MAX_BACKUP_BYTES = 5 * 1024 * 1024
+
+function BackupSection() {
+  const [pending, setPending] = useState<Backup>()
+  const [message, setMessage] = useState<{ ok: boolean; text: string }>()
+  const b = strings.settings.backup
+
+  const exportBackup = async () => {
+    const { saved, reactions, settings } = useStore.getState()
+    const now = new Date()
+    const backup = toBackup({ saved, reactions, city: settings.city }, now)
+    const done = await saveBackupFile(backupFileName(now), JSON.stringify(backup, null, 2))
+    setMessage(done ? { ok: true, text: b.exported } : undefined)
+  }
+
+  const pickFile = async (e: ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    e.target.value = '' // So picking the same file again still fires.
+    if (!file) return
+    setPending(undefined)
+    setMessage(undefined)
+    if (file.size > MAX_BACKUP_BYTES) return setMessage({ ok: false, text: b.errors.too_big })
+    const parsed = parseBackup(await file.text().catch(() => ''))
+    if (parsed.ok) setPending(parsed.backup)
+    else setMessage({ ok: false, text: b.errors[parsed.reason] })
+  }
+
+  const restore = (mode: RestoreMode) => {
+    if (!pending) return
+    if (mode === 'replace' && !window.confirm(b.confirmReplace)) return
+    const { saved, reactions, settings, restore: apply } = useStore.getState()
+    const data = fromBackup(pending, { saved, reactions, city: settings.city }, mode, new Date())
+    apply(data)
+    setPending(undefined)
+    setMessage({ ok: true, text: b.restored(Object.keys(data.saved).length) })
+  }
+
+  return (
+    <section className="flex flex-col gap-3 rounded-card border border-border bg-surface p-4">
+      <h2 className="font-display text-xl font-semibold">{b.title}</h2>
+      <p className="text-sm text-text-muted">{b.hint}</p>
+
+      <div className="flex flex-wrap gap-2">
+        <button type="button" onClick={exportBackup} className={btnSecondary}>
+          <Download size={18} aria-hidden />
+          {b.export}
+        </button>
+        <label className={`${btnSecondary} cursor-pointer focus-within:border-gold`}>
+          <Upload size={18} aria-hidden />
+          {b.import}
+          <input type="file" accept=".json,application/json" onChange={pickFile} className="sr-only" />
+        </label>
+      </div>
+
+      {pending && (
+        <div className="flex flex-col gap-3 rounded-2xl border border-gold bg-surface-raised p-4">
+          <p className="text-sm font-medium">
+            {b.summary(
+              new Date(pending.exportedAt).toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' }),
+              Object.keys(pending.saved).length,
+            )}
+          </p>
+          <p className="text-sm text-text-muted">{b.mergeHint}</p>
+          <p className="text-sm text-text-muted">{b.replaceHint}</p>
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={() => restore('merge')} className={btnPrimary}>
+              {b.merge}
+            </button>
+            <button type="button" onClick={() => restore('replace')} className={btnDanger}>
+              {b.replace}
+            </button>
+            <button type="button" onClick={() => setPending(undefined)} className={btnSecondary}>
+              {b.cancel}
+            </button>
+          </div>
+        </div>
+      )}
+
+      <div aria-live="polite">
+        {message && <p className={`text-sm ${message.ok ? 'text-success' : 'text-danger'}`}>{message.text}</p>}
+      </div>
+    </section>
+  )
+}
+
+function ResetSection() {
+  const [done, setDone] = useState(false)
+  const r = strings.settings.reset
+
+  const reset = () => {
+    if (!window.confirm(r.confirm)) return
+    useStore.getState().resetAll()
+    clearWeatherCache()
+    setDone(true)
+  }
+
+  return (
+    <section className="flex flex-col items-start gap-3 rounded-card border border-border bg-surface p-4">
+      <h2 className="font-display text-xl font-semibold">{r.title}</h2>
+      <p className="text-sm text-text-muted">{r.hint}</p>
+      <button type="button" onClick={reset} className={btnDanger}>
+        <Trash2 size={18} aria-hidden />
+        {r.button}
+      </button>
+      <div aria-live="polite">{done && <p className="text-sm text-success">{r.done}</p>}</div>
+    </section>
+  )
+}
+
+function AboutSection() {
+  const a = strings.settings.about
+  return (
+    <section className="flex flex-col gap-2 rounded-card border border-border bg-surface p-4">
+      <h2 className="font-display text-xl font-semibold">{a.title}</h2>
+      <p className="text-sm text-text-muted">{a.privacy}</p>
+      <p className="text-sm text-text-muted">
+        {strings.appName} · {a.version} {APP_VERSION}
+      </p>
+    </section>
+  )
+}
+
 export default function Settings() {
   return (
     <section className="flex flex-col gap-4">
       <h1 className="font-display text-3xl font-semibold">{strings.settings.title}</h1>
       <GeminiSection />
       <CitySection />
-      <p className="text-sm text-text-muted">{strings.settings.moreSoon}</p>
+      <BackupSection />
+      <ResetSection />
+      <AboutSection />
     </section>
   )
 }

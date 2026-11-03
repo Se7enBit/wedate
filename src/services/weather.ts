@@ -29,6 +29,14 @@ function writeCache(entry: CachedWeather) {
   }
 }
 
+export function clearWeatherCache() {
+  try {
+    localStorage.removeItem(CACHE_KEY)
+  } catch {
+    // Storage blocked: there is nothing to clear.
+  }
+}
+
 /** Current weather from Open-Meteo, cached for 30 minutes. Throws ServiceError. */
 export async function getWeather(lat: number, lon: number): Promise<WeatherSummary> {
   const cached = readCache()

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { DEFAULT_GEMINI_MODEL, STORAGE_KEY } from '../config.ts'
+import type { BackupData } from '../domain/backup.ts'
 import type { Filters } from '../domain/filters.ts'
 import type { Budget, Duration, Idea, Reaction, Vibe } from '../domain/idea.ts'
 import type { AiErrorCode, IdeaPrefs } from '../domain/prompt.ts'
@@ -75,9 +76,23 @@ type State = PersistedState & {
   dealFresh: (ideas: Idea[]) => void
   setCreate: (patch: Partial<CreateSession>) => void
   addDrafts: (ideas: Idea[]) => void
+  /** Applies restored backup data. The Gemini key and model stay as they are. */
+  restore: (data: BackupData) => void
+  /** Back to a fresh install, Gemini key included. */
+  resetAll: () => void
 }
 
 const newSeed = () => Math.floor(Math.random() * 2 ** 31)
+
+const initialData = (): PersistedState & Pick<State, 'filters' | 'now' | 'create' | 'drafts'> => ({
+  saved: {},
+  reactions: [],
+  settings: { geminiModel: DEFAULT_GEMINI_MODEL },
+  filters: {},
+  now: { moods: [], maxBudget: 3, maxDuration: 'full_day', seed: newSeed(), passed: [], fresh: [], dealing: false },
+  create: { prefs: { vibes: [], budget: 3, duration: 'full_day' }, loading: false, ideas: [] },
+  drafts: {},
+})
 
 const nowIso = () => new Date().toISOString()
 
@@ -103,13 +118,7 @@ export function newId(): string {
 export const useStore = create<State>()(
   persist(
     (set) => ({
-      saved: {},
-      reactions: [],
-      settings: { geminiModel: DEFAULT_GEMINI_MODEL },
-      filters: {},
-      now: { moods: [], maxBudget: 3, maxDuration: 'full_day', seed: newSeed(), passed: [], fresh: [], dealing: false },
-      create: { prefs: { vibes: [], budget: 3, duration: 'full_day' }, loading: false, ideas: [] },
-      drafts: {},
+      ...initialData(),
 
       save: (idea) =>
         set((s) =>
@@ -176,6 +185,8 @@ export const useStore = create<State>()(
       setCreate: (patch) => set((s) => ({ create: { ...s.create, ...patch } })),
       addDrafts: (ideas) =>
         set((s) => ({ drafts: { ...s.drafts, ...Object.fromEntries(ideas.map((idea) => [idea.id, idea])) } })),
+      restore: ({ saved, reactions, city }) => set((s) => ({ saved, reactions, settings: { ...s.settings, city } })),
+      resetAll: () => set(initialData()),
     }),
     {
       name: STORAGE_KEY,

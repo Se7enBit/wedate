@@ -10,14 +10,46 @@ export const strings = {
   settings: {
     title: 'Settings',
     open: 'Open settings',
-    moreSoon: 'Backups arrive in a later update.',
+    backup: {
+      title: 'Backup',
+      hint: 'Your ideas, notes and history live only on this phone. A backup file lets you restore them or move them to another phone. It never includes your Gemini key.',
+      export: 'Export backup',
+      exported: 'Backup saved.',
+      import: 'Import backup',
+      summary: (date: string, count: number) =>
+        `Backup from ${date} with ${count === 1 ? '1 saved idea' : `${count} saved ideas`}.`,
+      merge: 'Merge',
+      mergeHint: 'Merge keeps both, and the newer copy of an idea wins. Ideas you deleted since the backup come back.',
+      replace: 'Replace everything',
+      replaceHint: 'Replace swaps everything on this phone for the backup. Your Gemini key stays.',
+      cancel: 'Cancel',
+      confirmReplace: 'Replace all your ideas, notes and history with this backup? This cannot be undone.',
+      restored: (count: number) => `Backup restored. You now have ${count === 1 ? '1 saved idea' : `${count} saved ideas`}.`,
+      errors: {
+        not_json: "That file couldn't be read. Pick a WeDate backup file.",
+        not_backup: "That isn't a WeDate backup, or it's damaged. Nothing was changed.",
+        too_big: "That file is too big to be a WeDate backup. Nothing was changed.",
+      },
+    },
+    reset: {
+      title: 'Reset all data',
+      hint: 'Deletes your saved ideas, notes, history, city and Gemini key from this phone.',
+      button: 'Reset all data',
+      confirm: 'Delete everything on this phone, including your Gemini key? This cannot be undone. Export a backup first if you might want it back.',
+      done: 'All data deleted.',
+    },
+    about: {
+      title: 'About',
+      version: 'Version',
+      privacy: 'No accounts and no tracking. Your data stays on this phone.',
+    },
     gemini: {
       title: 'AI ideas',
       hint: 'Paste a free Gemini API key. It stays on this phone and is only sent to Google.',
       getKey: 'Get a free key at Google AI Studio',
       key: 'Gemini API key',
       keyPlaceholder: 'Paste your key',
-      replacePlaceholder: 'Paste a new key to replace it',
+      replacePlaceholder: 'Paste a new key',
       currentKey: 'Saved key',
       noKey: 'No key saved.',
       saveKey: 'Save',
@@ -54,6 +86,15 @@ export const strings = {
       },
     },
   },
+  problem: {
+    errorTitle: 'Something went wrong',
+    errorHint: 'Your saved ideas are safe. Try reloading the app.',
+    reload: 'Reload',
+    notFoundTitle: 'Nothing here',
+    notFoundHint: "This page doesn't exist.",
+    goDiscover: 'Back to Discover',
+  },
+
   ai: {
     errors: {
       no_key: 'Add your Gemini key in Settings to get AI ideas.',
