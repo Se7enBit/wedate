@@ -1,0 +1,47 @@
+@import 'tailwindcss';
+
+/* Design tokens ("Moody night-out", CLAUDE.md section 11). Components use these, never raw hex. */
+@theme {
+  --color-*: initial;
+  --color-bg: #120a18;
+  --color-surface: #1c1024;
+  --color-surface-raised: #26162f;
+  --color-border: #3a2448;
+  --color-text: #f6eef7;
+  --color-text-muted: #b8a5c4;
+  --color-gold: #e6b450;
+  --color-gold-soft: #f2d99b;
+  --color-rose: #e2627f;
+  --color-success: #6fcf97;
+  --color-danger: #eb5757;
+
+  --font-display: 'Fraunces Variable', Georgia, serif;
+  --font-sans: 'Inter Variable', system-ui, sans-serif;
+
+  /* Title sizes 32 / 24 / 20 = text-3xl / text-2xl / text-xl */
+  --text-3xl: 2rem;
+  --text-3xl--line-height: 1.2;
+
+  --radius-card: 20px;
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply bg-bg font-sans text-base text-text antialiased;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  ::before,
+  ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
